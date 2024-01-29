@@ -39,6 +39,8 @@ type Config struct {
 	EnvSecrets           []string
 
 	AdditionalFlags map[string]string
+
+	OutputFile string
 }
 
 const (
@@ -85,6 +87,8 @@ func parseConfig() (*Config, error) {
 		Concurrency:          os.Getenv("PLUGIN_CONCURRENCY"),
 		Memory:               os.Getenv("PLUGIN_MEMORY"),
 		Timeout:              os.Getenv("PLUGIN_TIMEOUT"),
+
+		OutputFile: os.Getenv("PLUGIN_OUTPUT_FILE"),
 	}
 
 	envStr := os.Getenv("PLUGIN_ENVIRONMENT")
@@ -243,7 +247,8 @@ func CreateExecutionPlan(cfg *Config) ([]string, error) {
 }
 
 func ExecutePlan(e *Env, plan []string) error {
-	if err := e.Run(GCloudCommand, plan...); err != nil {
+	err := e.Run(GCloudCommand, plan...)
+	if err != nil {
 		return fmt.Errorf("error: %s\n", err)
 	}
 
@@ -256,7 +261,17 @@ func runConfig(cfg *Config) error {
 		return err
 	}
 
-	e := NewEnv(cfg.Dir, os.Environ(), os.Stdout, os.Stderr, false)
+	stdout := os.Stdout
+	if cfg.OutputFile != "" {
+		outputfile, err := os.Create(cfg.OutputFile)
+		if err != nil {
+			log.Fatalf("Error creating output file: %s", err)
+		}
+		defer outputfile.Close()
+		stdout = outputfile
+	}
+
+	e := NewEnv(cfg.Dir, os.Environ(), stdout, os.Stderr, false)
 
 	if err := e.Run(GCloudCommand, "version"); err != nil {
 		return err
