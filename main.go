@@ -256,8 +256,7 @@ func CreateExecutionPlan(cfg *Config) ([]string, error) {
 }
 
 func ExecutePlan(e *Env, plan []string) error {
-	err := e.Run(GCloudCommand, plan...)
-	if err != nil {
+	if err := e.Run(GCloudCommand, plan...); err != nil {
 		return fmt.Errorf("error: %s\n", err)
 	}
 
