@@ -224,6 +224,15 @@ func CreateExecutionPlan(cfg *Config) ([]string, error) {
 		args = append(args, "services", "update-traffic")
 		args = append(args, cfg.ServiceName)
 
+		revisionsFile, _ := os.ReadFile(".revision")
+		revisions := string(revisionsFile)
+		if revisions != "" {
+			if !strings.Contains(revisions, ",") {
+				revisions += "=100"
+			}
+			args = append(args, fmt.Sprintf("--to-revisions==%s", revisions))
+		}
+
 	default:
 		return []string{}, fmt.Errorf("action: %s not implemented yet", cfg.Action)
 	}
@@ -261,17 +270,7 @@ func runConfig(cfg *Config) error {
 		return err
 	}
 
-	stdout := os.Stdout
-	if cfg.OutputFile != "" {
-		outputfile, err := os.Create(cfg.OutputFile)
-		if err != nil {
-			log.Fatalf("Error creating output file: %s", err)
-		}
-		defer outputfile.Close()
-		stdout = outputfile
-	}
-
-	e := NewEnv(cfg.Dir, os.Environ(), stdout, os.Stderr, false)
+	e := NewEnv(cfg.Dir, os.Environ(), os.Stdout, os.Stderr, false)
 
 	if err := e.Run(GCloudCommand, "version"); err != nil {
 		return err
@@ -279,6 +278,15 @@ func runConfig(cfg *Config) error {
 
 	if err := e.Run(GCloudCommand, "auth", "activate-service-account", "--key-file", TmpTokenFileLocation); err != nil {
 		return err
+	}
+
+	if cfg.OutputFile != "" {
+		outputfile, err := os.Create(cfg.OutputFile)
+		if err != nil {
+			log.Fatalf("Error creating output file: %s", err)
+		}
+		defer outputfile.Close()
+		e.stdout = outputfile
 	}
 
 	return ExecutePlan(e, plan)
